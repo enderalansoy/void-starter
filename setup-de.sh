@@ -21,8 +21,8 @@ show_output() {
   $command &> "$tempfile" &
   local pid=$!
   
-  # Display the output in a dialog tailboxbg
-  dialog --title "$title" --tailboxbg "$tempfile" 20 70
+  # Display the output in a dialog tailbox
+  dialog --title "$title" --tailbox "$tempfile" 20 70
   
   wait $pid
   rm "$tempfile"
