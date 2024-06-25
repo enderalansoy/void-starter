@@ -87,7 +87,7 @@ echo "Choose a desktop environment to install:"
 echo "1) KDE"
 echo "2) GNOME"
 echo "3) Cinnamon"
-read -p "Enter the number of your choice: " choice
+read -rp "Enter the number of your choice: " choice
 
 case $choice in
   1)
@@ -129,7 +129,7 @@ setup_pipewire
 setup_nvidia
 
 # Prompt for reboot
-read -p "Installation complete. Would you like to reboot now? (y/n): " reboot_choice
+read -rp "Installation complete. Would you like to reboot now? (y/n): " reboot_choice
 if [[ "$reboot_choice" =~ ^[Yy]$ ]]; then
   sudo reboot
 else
