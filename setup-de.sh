@@ -16,12 +16,12 @@ setup_pipewire() {
   if xbps-query -l | grep -q '^ii.*pulseaudio'; then
     sudo sv stop pulseaudio
     disable_service pulseaudio
-    sudo xbps-remove -Ry pulseaudio
+    sudo xbps-remove -Ry pulseaudio >/dev/null 2>&1
   fi
 
   # Install Pipewire and related packages
   dialog --infobox "Installing Pipewire and related packages..." 10 50
-  sudo xbps-install -Sy pipewire wireplumber alsa-pipewire libspa-bluetooth pipewire-pulse
+  sudo xbps-install -Sy pipewire wireplumber alsa-pipewire libspa-bluetooth >/dev/null 2>&1
 
   # Enable Pipewire configuration
   sudo mkdir -p /etc/pipewire/pipewire.conf.d
@@ -31,21 +31,9 @@ setup_pipewire() {
   sudo ln -sf /usr/share/alsa/alsa.conf.d/50-pipewire.conf /etc/alsa/conf.d/
   sudo ln -sf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d/
 
-  # Create a startup script for Pipewire
-  sudo bash -c 'echo -e "#!/bin/bash\npipewire &\npipewire-pulse &" > /usr/local/bin/start-pipewire.sh'
-  sudo chmod +x /usr/local/bin/start-pipewire.sh
-
   # Add the startup script to the user's session autostart
   mkdir -p ~/.config/autostart
-  echo -e "[Desktop Entry]\nType=Application\nExec=/usr/local/bin/start-pipewire.sh\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\nName=Pipewire" > ~/.config/autostart/pipewire.desktop
-
-  if [[ $DE == "KDE" ]]; then
-    mkdir -p ~/.config/autostart-scripts
-    cp /usr/local/bin/start-pipewire.sh ~/.config/autostart-scripts/
-  elif [[ $DE == "Cinnamon" ]]; then
-    mkdir -p ~/.config/autostart
-    cp ~/.config/autostart/pipewire.desktop ~/.config/autostart/
-  fi
+  echo -e "[Desktop Entry]\nType=Application\nExec=pipewire & pipewire-pulse\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\nName=Pipewire" > ~/.config/autostart/pipewire.desktop
 }
 
 # Function to setup NVIDIA drivers
@@ -58,7 +46,7 @@ setup_nvidia() {
     if [[ $? -eq 0 ]]; then
       # Add the nonfree repository
       dialog --infobox "Adding nonfree repository..." 10 50
-      sudo xbps-install -Sy void-repo-nonfree
+      sudo xbps-install -Sy void-repo-nonfree >/dev/null 2>&1
 
       # Determine the correct driver package
       if echo $NVIDIA_CARD | grep -E 'GTX [8-9]|RTX|Tesla [P-Q]|Quadro [P-Q]|TITAN'; then
@@ -74,7 +62,7 @@ setup_nvidia() {
 
       # Install the NVIDIA driver package
       dialog --infobox "Installing NVIDIA drivers..." 10 50
-      sudo xbps-install -Sy $DRIVER_PACKAGE
+      sudo xbps-install -Sy $DRIVER_PACKAGE >/dev/null 2>&1
 
       # Load the NVIDIA kernel module
       sudo modprobe nvidia
@@ -83,13 +71,13 @@ setup_nvidia() {
 }
 
 # Install dialog if not already installed
-sudo xbps-install -Sy dialog
+sudo xbps-install -Sy dialog >/dev/null 2>&1
 
 # Ask if the user wants to update the system
 dialog --yesno "Do you want to update the system first?" 10 50
 if [[ $? -eq 0 ]]; then
   dialog --infobox "Updating the system..." 10 50
-  sudo xbps-install -Suy
+  sudo xbps-install -Suy >/dev/null 2>&1
 fi
 
 # Choose desktop environment
@@ -122,7 +110,7 @@ esac
 
 # Install desktop environment and necessary packages
 dialog --infobox "Installing desktop environment and necessary packages..." 10 50
-sudo xbps-install -Sy xorg NetworkManager $PACKAGES
+sudo xbps-install -Sy xorg NetworkManager $PACKAGES >/dev/null 2>&1
 
 # Enable services
 dialog --infobox "Enabling services..." 10 50
