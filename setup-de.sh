@@ -126,20 +126,22 @@ esac
 # Install desktop environment and necessary packages
 show_progress "sudo xbps-install -Sy xorg NetworkManager $PACKAGES" "Installing desktop environment" "Please wait..."
 
-# Enable services
-dialog --infobox "Enabling services..." 10 50
-enable_service dbus
-enable_service $DISPLAY_MANAGER
-enable_service NetworkManager
-
-# Disable wpa_supplicant service
-disable_service wpa_supplicant
-
 # Setup Pipewire
 setup_pipewire
 
 # Setup NVIDIA drivers
 setup_nvidia
+
+# Enable services
+dialog --infobox "Enabling services..." 10 50
+enable_service dbus
+enable_service NetworkManager
+
+# Disable wpa_supplicant service
+disable_service wpa_supplicant
+
+# Lastly, enable the display manager
+enable_service $DISPLAY_MANAGER
 
 # Prompt for reboot
 dialog --yesno "Installation complete. Would you like to reboot now?" 10 50
