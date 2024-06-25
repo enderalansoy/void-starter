@@ -10,18 +10,32 @@ disable_service() {
   sudo rm /var/service/$1
 }
 
+# Function to show progress bar
+show_progress() {
+  (
+    $1 2>&1 | while read -r line; do
+      if [[ "$line" =~ \[.*%\] ]]; then
+        percent=$(echo "$line" | grep -oP '\[\K[0-9]+(?=%\])')
+        echo $percent
+        echo "XXX"
+        echo "Progress: $percent%"
+        echo "XXX"
+      fi
+    done
+  ) | dialog --title "$2" --gauge "$3" 10 70 0
+}
+
 # Function to setup Pipewire
 setup_pipewire() {
   # Stop and remove PulseAudio if it is installed
   if xbps-query -l | grep -q '^ii.*pulseaudio'; then
     sudo sv stop pulseaudio
     disable_service pulseaudio
-    sudo xbps-remove -Ry pulseaudio >/dev/null 2>&1
+    show_progress "sudo xbps-remove -Ry pulseaudio" "Removing PulseAudio" "Please wait..."
   fi
 
   # Install Pipewire and related packages
-  dialog --infobox "Installing Pipewire and related packages..." 10 50
-  sudo xbps-install -Sy pipewire wireplumber alsa-pipewire libspa-bluetooth >/dev/null 2>&1
+  show_progress "sudo xbps-install -Sy pipewire wireplumber alsa-pipewire libspa-bluetooth pipewire-pulse" "Installing Pipewire" "Please wait..."
 
   # Enable Pipewire configuration
   sudo mkdir -p /etc/pipewire/pipewire.conf.d
@@ -30,6 +44,10 @@ setup_pipewire() {
   sudo mkdir -p /etc/alsa/conf.d
   sudo ln -sf /usr/share/alsa/alsa.conf.d/50-pipewire.conf /etc/alsa/conf.d/
   sudo ln -sf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d/
+
+  # Create a startup script for Pipewire
+  sudo bash -c 'echo -e "#!/bin/bash\npipewire &\npipewire-pulse &" > /usr/local/bin/start-pipewire.sh'
+  sudo chmod +x /usr/local/bin/start-pipewire.sh
 
   # Add the startup script to the user's session autostart
   mkdir -p ~/.config/autostart
@@ -45,8 +63,7 @@ setup_nvidia() {
     dialog --yesno "NVIDIA card detected. Do you want to install NVIDIA drivers?" 10 50
     if [[ $? -eq 0 ]]; then
       # Add the nonfree repository
-      dialog --infobox "Adding nonfree repository..." 10 50
-      sudo xbps-install -Sy void-repo-nonfree >/dev/null 2>&1
+      show_progress "sudo xbps-install -Sy void-repo-nonfree" "Adding nonfree repository" "Please wait..."
 
       # Determine the correct driver package
       if echo $NVIDIA_CARD | grep -E 'GTX [8-9]|RTX|Tesla [P-Q]|Quadro [P-Q]|TITAN'; then
@@ -61,8 +78,7 @@ setup_nvidia() {
       fi
 
       # Install the NVIDIA driver package
-      dialog --infobox "Installing NVIDIA drivers..." 10 50
-      sudo xbps-install -Sy $DRIVER_PACKAGE >/dev/null 2>&1
+      show_progress "sudo xbps-install -Sy $DRIVER_PACKAGE" "Installing NVIDIA drivers" "Please wait..."
 
       # Load the NVIDIA kernel module
       sudo modprobe nvidia
@@ -76,8 +92,7 @@ sudo xbps-install -Sy dialog >/dev/null 2>&1
 # Ask if the user wants to update the system
 dialog --yesno "Do you want to update the system first?" 10 50
 if [[ $? -eq 0 ]]; then
-  dialog --infobox "Updating the system..." 10 50
-  sudo xbps-install -Suy >/dev/null 2>&1
+  show_progress "sudo xbps-install -Suy" "Updating the system" "Please wait..."
 fi
 
 # Choose desktop environment
@@ -109,8 +124,7 @@ case $DE in
 esac
 
 # Install desktop environment and necessary packages
-dialog --infobox "Installing desktop environment and necessary packages..." 10 50
-sudo xbps-install -Sy xorg NetworkManager $PACKAGES >/dev/null 2>&1
+show_progress "sudo xbps-install -Sy xorg NetworkManager $PACKAGES" "Installing desktop environment" "Please wait..."
 
 # Enable services
 dialog --infobox "Enabling services..." 10 50
