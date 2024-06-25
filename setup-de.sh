@@ -10,31 +10,32 @@ disable_service() {
   sudo rm /var/service/$1
 }
 
-# Function to show output in a dialog box
-show_output() {
-  local command="$1"
-  local title="$2"
-  local tempfile=$(mktemp)
-  touch "$tempfile"
-  tail -f "$tempfile" | dialog --title "$title" --tailbox - 20 70 &
-  local pid=$!
-  $command &> "$tempfile"
-  sleep 1  # Give dialog time to display the initial content
-  kill $pid
-  rm "$tempfile"
+# Function to show progress bar
+show_progress() {
+  {
+    $1 2>&1 | while read -r line; do
+      if [[ "$line" =~ ([0-9]+%|\[[0-9]+\]|\([0-9]+%\)) ]]; then
+        percent=$(echo "$line" | grep -oP '\d+(?=%)')
+        echo $percent
+        echo "XXX"
+        echo "Progress: $percent%"
+        echo "XXX"
+      fi
+    done
+  } | dialog --title "$2" --gauge "$3" 10 70 0
 }
 
 # Function to setup Pipewire
 setup_pipewire() {
   # Stop and remove PulseAudio if it is installed
-  if xbps-query -l | grep -q '^ii.*pulseaudio'; then
+  if xbps-query -l | grep -q 'pulseaudio'; then
     sudo sv stop pulseaudio
     disable_service pulseaudio
-    show_output "sudo xbps-remove -Ry pulseaudio" "Removing PulseAudio"
+    show_progress "sudo xbps-remove -Ry pulseaudio" "Removing PulseAudio" "Please wait..."
   fi
 
   # Install Pipewire and related packages
-  show_output "sudo xbps-install -Sy pipewire wireplumber alsa-pipewire libspa-bluetooth" "Installing Pipewire"
+  show_progress "sudo xbps-install -Sy pipewire wireplumber alsa-pipewire libspa-bluetooth" "Installing Pipewire" "Please wait..."
 
   # Enable Pipewire configuration
   sudo mkdir -p /etc/pipewire/pipewire.conf.d
@@ -43,7 +44,7 @@ setup_pipewire() {
   sudo mkdir -p /etc/alsa/conf.d
   sudo ln -sf /usr/share/alsa/alsa.conf.d/50-pipewire.conf /etc/alsa/conf.d/
   sudo ln -sf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d/
-
+  
   # Add the startup script to the user's session autostart
   mkdir -p ~/.config/autostart
   echo -e "[Desktop Entry]\nType=Application\nExec=pipewire & pipewire-pulse\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\nName=Pipewire" > ~/.config/autostart/pipewire.desktop
@@ -58,7 +59,7 @@ setup_nvidia() {
     dialog --yesno "NVIDIA card detected. Do you want to install NVIDIA drivers?" 10 50
     if [[ $? -eq 0 ]]; then
       # Add the nonfree repository
-      show_output "sudo xbps-install -Sy void-repo-nonfree" "Adding nonfree repository"
+      show_progress "sudo xbps-install -Sy void-repo-nonfree" "Adding nonfree repository" "Please wait..."
 
       # Determine the correct driver package
       if echo $NVIDIA_CARD | grep -E 'GTX [8-9]|RTX|Tesla [P-Q]|Quadro [P-Q]|TITAN'; then
@@ -73,7 +74,7 @@ setup_nvidia() {
       fi
 
       # Install the NVIDIA driver package
-      show_output "sudo xbps-install -Sy $DRIVER_PACKAGE" "Installing NVIDIA drivers"
+      show_progress "sudo xbps-install -Sy $DRIVER_PACKAGE" "Installing NVIDIA drivers" "Please wait..."
 
       # Load the NVIDIA kernel module
       sudo modprobe nvidia
@@ -87,7 +88,7 @@ sudo xbps-install -Sy dialog >/dev/null 2>&1
 # Ask if the user wants to update the system
 dialog --yesno "Do you want to update the system first?" 10 50
 if [[ $? -eq 0 ]]; then
-  show_output "sudo xbps-install -Suy" "Updating the system"
+  show_progress "sudo xbps-install -Suy" "Updating the system" "Please wait..."
 fi
 
 # Choose desktop environment
@@ -119,7 +120,7 @@ case $DE in
 esac
 
 # Install desktop environment and necessary packages
-show_output "sudo xbps-install -Sy xorg NetworkManager $PACKAGES" "Installing desktop environment"
+show_progress "sudo xbps-install -Sy xorg NetworkManager $PACKAGES" "Installing desktop environment" "Please wait..."
 
 # Setup Pipewire
 setup_pipewire
