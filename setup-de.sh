@@ -12,17 +12,17 @@ disable_service() {
 
 # Function to show progress bar
 show_progress() {
-  (
+  {
     $1 2>&1 | while read -r line; do
-      if [[ "$line" =~ \[.*%\] ]]; then
-        percent=$(echo "$line" | grep -oP '\[\K[0-9]+(?=%\])')
+      if [[ "$line" =~ \([0-9]+%\) ]]; then
+        percent=$(echo "$line" | grep -oP '\(\K[0-9]+(?=%\))')
         echo $percent
         echo "XXX"
         echo "Progress: $percent%"
         echo "XXX"
       fi
     done
-  ) | dialog --title "$2" --gauge "$3" 10 70 0
+  } | dialog --title "$2" --gauge "$3" 10 70 0
 }
 
 # Function to setup Pipewire
