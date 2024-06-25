@@ -10,19 +10,43 @@ disable_service() {
   sudo rm /var/service/$1
 }
 
-# Function to show progress bar
+# Function to show progress bar based on total packages
 show_progress() {
-  {
-    $1 2>&1 | while read -r line; do
-      if [[ "$line" =~ ([0-9]+%|\[[0-9]+\]|\([0-9]+%\)) ]]; then
-        percent=$(echo "$line" | grep -oP '\d+(?=%)')
-        echo $percent
-        echo "XXX"
-        echo "Progress: $percent%"
-        echo "XXX"
+  local command="$1"
+  local title="$2"
+  local message="$3"
+  local tempfile=$(mktemp)
+
+  # Run command and capture output to temporary file
+  $command &> "$tempfile" &
+  local pid=$!
+
+  # Count total number of packages to be processed
+  local total_packages=$(grep -c 'Installing ' "$tempfile")
+
+  # Initialize progress variables
+  local current_package=0
+  local progress=0
+
+  # Read the temporary file line by line and update progress
+  (
+    while kill -0 $pid 2>/dev/null; do
+      if read -r line; then
+        if [[ "$line" =~ Installing ]]; then
+          ((current_package++))
+          progress=$((current_package * 100 / total_packages))
+          echo $progress
+          echo "XXX"
+          echo "Processing package $current_package of $total_packages: $line"
+          echo "XXX"
+        fi
       fi
-    done
-  } | dialog --title "$2" --gauge "$3" 10 70 0
+    done < "$tempfile"
+  ) | dialog --title "$title" --gauge "$message" 10 70 0
+
+  # Cleanup
+  wait $pid
+  rm "$tempfile"
 }
 
 # Function to setup Pipewire
@@ -44,7 +68,11 @@ setup_pipewire() {
   sudo mkdir -p /etc/alsa/conf.d
   sudo ln -sf /usr/share/alsa/alsa.conf.d/50-pipewire.conf /etc/alsa/conf.d/
   sudo ln -sf /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d/
-  
+
+  # Create a startup script for Pipewire
+  sudo bash -c 'echo -e "#!/bin/bash\npipewire &\npipewire-pulse &" > /usr/local/bin/start-pipewire.sh'
+  sudo chmod +x /usr/local/bin/start-pipewire.sh
+
   # Add the startup script to the user's session autostart
   mkdir -p ~/.config/autostart
   echo -e "[Desktop Entry]\nType=Application\nExec=pipewire & pipewire-pulse\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\nName=Pipewire" > ~/.config/autostart/pipewire.desktop
