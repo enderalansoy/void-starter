@@ -20,6 +20,7 @@ setup_pipewire() {
   fi
 
   # Install Pipewire and related packages
+  dialog --infobox "Installing Pipewire and related packages..." 10 50
   sudo xbps-install -Sy pipewire wireplumber alsa-pipewire libspa-bluetooth pipewire-pulse
 
   # Enable Pipewire configuration
@@ -53,9 +54,10 @@ setup_nvidia() {
   NVIDIA_CARD=$(lspci | grep -i 'NVIDIA')
 
   if [[ -n $NVIDIA_CARD ]]; then
-    read -n 1 -p "NVIDIA card detected. Do you want to install NVIDIA drivers? (y/n): " install_nvidia
-    if [[ "$install_nvidia" =~ ^[Yy]$ ]]; then
+    dialog --yesno "NVIDIA card detected. Do you want to install NVIDIA drivers?" 10 50
+    if [[ $? -eq 0 ]]; then
       # Add the nonfree repository
+      dialog --infobox "Adding nonfree repository..." 10 50
       sudo xbps-install -Sy void-repo-nonfree
 
       # Determine the correct driver package
@@ -66,11 +68,12 @@ setup_nvidia() {
       elif echo $NVIDIA_CARD | grep -E 'GT[4-5]|GTX [4-5]'; then
         DRIVER_PACKAGE="nvidia390"
       else
-        echo "Unsupported NVIDIA card. Exiting."
+        dialog --msgbox "Unsupported NVIDIA card. Exiting." 10 50
         exit 1
       fi
 
       # Install the NVIDIA driver package
+      dialog --infobox "Installing NVIDIA drivers..." 10 50
       sudo xbps-install -Sy $DRIVER_PACKAGE
 
       # Load the NVIDIA kernel module
@@ -79,20 +82,23 @@ setup_nvidia() {
   fi
 }
 
+# Install dialog if not already installed
+sudo xbps-install -Sy dialog
+
 # Ask if the user wants to update the system
-read -n 1 -p "Do you want to update the system first? (y/n): " update_choice
-if [[ "$update_choice" =~ ^[Yy]$ ]]; then
+dialog --yesno "Do you want to update the system first?" 10 50
+if [[ $? -eq 0 ]]; then
+  dialog --infobox "Updating the system..." 10 50
   sudo xbps-install -Suy
 fi
 
 # Choose desktop environment
-echo "Choose a desktop environment to install:"
-echo "1) KDE"
-echo "2) GNOME"
-echo "3) Cinnamon"
-read -n 1 -p "Enter the number of your choice: " choice
+DE=$(dialog --menu "Choose a desktop environment to install:" 15 50 3 \
+  1 "KDE" \
+  2 "GNOME" \
+  3 "Cinnamon" 3>&1 1>&2 2>&3)
 
-case $choice in
+case $DE in
   1)
     DE="KDE"
     PACKAGES="kde5 kde5-baseapps sddm"
@@ -109,15 +115,17 @@ case $choice in
     DISPLAY_MANAGER="lightdm"
     ;;
   *)
-    echo "Invalid choice. Exiting."
+    dialog --msgbox "Invalid choice. Exiting." 10 50
     exit 1
     ;;
 esac
 
 # Install desktop environment and necessary packages
+dialog --infobox "Installing desktop environment and necessary packages..." 10 50
 sudo xbps-install -Sy xorg NetworkManager $PACKAGES
 
 # Enable services
+dialog --infobox "Enabling services..." 10 50
 enable_service dbus
 enable_service $DISPLAY_MANAGER
 enable_service NetworkManager
@@ -132,9 +140,9 @@ setup_pipewire
 setup_nvidia
 
 # Prompt for reboot
-read -n 1 -p "Installation complete. Would you like to reboot now? (y/n): " reboot_choice
-if [[ "$reboot_choice" =~ ^[Yy]$ ]]; then
+dialog --yesno "Installation complete. Would you like to reboot now?" 10 50
+if [[ $? -eq 0 ]]; then
   sudo reboot
 else
-  echo "Please reboot your system manually to apply the changes."
+  dialog --msgbox "Please reboot your system manually to apply the changes." 10 50
 fi
