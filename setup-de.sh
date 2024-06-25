@@ -19,6 +19,7 @@ show_output() {
   tail -f "$tempfile" | dialog --title "$title" --tailbox - 20 70 &
   local pid=$!
   $command &> "$tempfile"
+  sleep 1  # Give dialog time to display the initial content
   kill $pid
   rm "$tempfile"
 }
@@ -54,7 +55,7 @@ setup_nvidia() {
   NVIDIA_CARD=$(lspci | grep -i 'NVIDIA')
 
   if [[ -n $NVIDIA_CARD ]]; then
-    dialog --yesno "NVIDIA card detected. Do you want to install NVIDIA drivers? This requires addition of Void's NONFREE repository" 10 50
+    dialog --yesno "NVIDIA card detected. Do you want to install NVIDIA drivers?" 10 50
     if [[ $? -eq 0 ]]; then
       # Add the nonfree repository
       show_output "sudo xbps-install -Sy void-repo-nonfree" "Adding nonfree repository"
