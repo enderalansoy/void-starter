@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Update the system
-sudo xbps-install -Suy
-
 # Function to enable a service
 enable_service() {
   sudo ln -s /etc/sv/$1 /var/service
@@ -56,38 +53,44 @@ setup_nvidia() {
   NVIDIA_CARD=$(lspci | grep -i 'NVIDIA')
 
   if [[ -n $NVIDIA_CARD ]]; then
-    # Add the nonfree repository
-    sudo xbps-install -Sy void-repo-nonfree
+    read -n 1 -p "NVIDIA card detected. Do you want to install NVIDIA drivers? (y/n): " install_nvidia
+    if [[ "$install_nvidia" =~ ^[Yy]$ ]]; then
+      # Add the nonfree repository
+      sudo xbps-install -Sy void-repo-nonfree
 
-    # Determine the correct driver package
-    if echo $NVIDIA_CARD | grep -E 'GTX [8-9]|RTX|Tesla [P-Q]|Quadro [P-Q]|TITAN'; then
-      DRIVER_PACKAGE="nvidia"
-    elif echo $NVIDIA_CARD | grep -E 'GTX [6-7]'; then
-      DRIVER_PACKAGE="nvidia470"
-    elif echo $NVIDIA_CARD | grep -E 'GT[4-5]|GTX [4-5]'; then
-      DRIVER_PACKAGE="nvidia390"
-    else
-      echo "Unsupported NVIDIA card. Exiting."
-      exit 1
+      # Determine the correct driver package
+      if echo $NVIDIA_CARD | grep -E 'GTX [8-9]|RTX|Tesla [P-Q]|Quadro [P-Q]|TITAN'; then
+        DRIVER_PACKAGE="nvidia"
+      elif echo $NVIDIA_CARD | grep -E 'GTX [6-7]'; then
+        DRIVER_PACKAGE="nvidia470"
+      elif echo $NVIDIA_CARD | grep -E 'GT[4-5]|GTX [4-5]'; then
+        DRIVER_PACKAGE="nvidia390"
+      else
+        echo "Unsupported NVIDIA card. Exiting."
+        exit 1
+      fi
+
+      # Install the NVIDIA driver package
+      sudo xbps-install -Sy $DRIVER_PACKAGE
+
+      # Load the NVIDIA kernel module
+      sudo modprobe nvidia
     fi
-
-    # Install the NVIDIA driver package
-    sudo xbps-install -Sy $DRIVER_PACKAGE
-
-    # Load the NVIDIA kernel module
-    sudo modprobe nvidia
   fi
 }
 
-# Install necessary packages
-sudo xbps-install -Sy curl git
+# Ask if the user wants to update the system
+read -n 1 -p "Do you want to update the system first? (y/n): " update_choice
+if [[ "$update_choice" =~ ^[Yy]$ ]]; then
+  sudo xbps-install -Suy
+fi
 
 # Choose desktop environment
 echo "Choose a desktop environment to install:"
 echo "1) KDE"
 echo "2) GNOME"
 echo "3) Cinnamon"
-read -rp "Enter the number of your choice: " choice
+read -n 1 -p "Enter the number of your choice: " choice
 
 case $choice in
   1)
@@ -129,7 +132,7 @@ setup_pipewire
 setup_nvidia
 
 # Prompt for reboot
-read -rp "Installation complete. Would you like to reboot now? (y/n): " reboot_choice
+read -n 1 -p "Installation complete. Would you like to reboot now? (y/n): " reboot_choice
 if [[ "$reboot_choice" =~ ^[Yy]$ ]]; then
   sudo reboot
 else
