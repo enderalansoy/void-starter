@@ -21,13 +21,8 @@ show_output() {
   $command &> "$tempfile" &
   local pid=$!
 
-  # Display the filtered output in a dialog tailbox
-  (
-    while kill -0 $pid 2>/dev/null; do
-      grep --line-buffered '\[\*\]' "$tempfile" | sed -u 's/.*\[\*\] //'
-      sleep 1
-    done
-  ) | dialog --title "$title" --programbox 20 70
+  # Display the output in a dialog tailbox
+  dialog --title "$title" --tailbox "$tempfile" 20 70
 
   wait $pid
   rm "$tempfile"
