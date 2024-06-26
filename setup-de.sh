@@ -10,23 +10,29 @@ disable_service() {
   sudo rm /var/service/$1
 }
 
-# Function to show real-time output in dialog
+# Function to show filtered output in dialog
 show_output() {
   local command="$1"
   local title="$2"
   local tempfile=$(mktemp)
   touch "$tempfile"
-  
+
   # Run the command and output to tempfile in the background
   $command &> "$tempfile" &
   local pid=$!
-  
-  # Display the output in a dialog tailbox
-  dialog --title "$title" --tailbox "$tempfile" 20 70
-  
+
+  # Display the filtered output in a dialog tailbox
+  (
+    while kill -0 $pid 2>/dev/null; do
+      grep --line-buffered '\[\*\]' "$tempfile" | sed -u 's/.*\[\*\] //'
+      sleep 1
+    done
+  ) | dialog --title "$title" --programbox 20 70
+
   wait $pid
   rm "$tempfile"
 }
+
 
 # Function to setup Pipewire
 setup_pipewire() {
@@ -139,7 +145,15 @@ enable_service NetworkManager
 # Disable wpa_supplicant service
 disable_service wpa_supplicant
 
-# Lastly, enable the display manager
+# Disable other display managers, if they are enabled
+disable_service sddm
+disable_service gdm
+disable_service lightdm
+disable_service xdm
+disable_service nodm
+disable_service stdm
+
+# Lastly, enable the display manager of choice
 enable_service $DISPLAY_MANAGER
 
 # Prompt for reboot
