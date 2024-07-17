@@ -10,7 +10,7 @@ disable_service() {
   sudo rm /var/service/$1
 }
 
-# Function to show filtered output in dialog
+# Function to show filtered output in dialog without exit button
 show_output() {
   local command="$1"
   local title="$2"
@@ -21,8 +21,8 @@ show_output() {
   $command &> "$tempfile" &
   local pid=$!
 
-  # Display the output in a dialog tailbox
-  dialog --title "$title" --tailbox "$tempfile" 20 70
+  # Display the output in a dialog tailboxbg
+  dialog --title "$title" --tailboxbg "$tempfile" 20 70
 
   wait $pid
   rm "$tempfile"
@@ -81,7 +81,7 @@ setup_nvidia() {
         DRIVER_PACKAGE="nvidia390"
       else
         dialog --msgbox "Unsupported NVIDIA card. Exiting." 10 50
-        exit 1
+        return
       fi
 
       # Install the NVIDIA driver package
@@ -126,7 +126,7 @@ install_gaming_toolbox() {
       ;;
     *)
       dialog --msgbox "Invalid choice. Exiting." 10 50
-      exit 1
+      return
       ;;
   esac
 
@@ -165,82 +165,104 @@ install_gaming_toolbox() {
   fi
 }
 
+# Function to install desktop environment
+install_desktop_environment() {
+  DE=$(dialog --menu "Choose a desktop environment to install:" 15 50 3 \
+    1 "KDE" \
+    2 "GNOME" \
+    3 "Cinnamon" 3>&1 1>&2 2>&3)
+
+  case $DE in
+    1)
+      DE="KDE"
+      PACKAGES="kde5 kde5-baseapps sddm"
+      DISPLAY_MANAGER="sddm"
+      ;;
+    2)
+      DE="GNOME"
+      PACKAGES="gnome gdm"
+      DISPLAY_MANAGER="gdm"
+      ;;
+    3)
+      DE="Cinnamon"
+      PACKAGES="cinnamon-all lightdm"
+      DISPLAY_MANAGER="lightdm"
+      ;;
+    *)
+      dialog --msgbox "Invalid choice. Exiting." 10 50
+      return
+      ;;
+  esac
+
+  # Install desktop environment and necessary packages
+  show_output "sudo xbps-install -Sy xorg NetworkManager $PACKAGES" "Installing desktop environment"
+
+  # Enable services
+  dialog --infobox "Enabling services..." 10 50
+  enable_service dbus
+  enable_service NetworkManager
+
+  # Disable wpa_supplicant service
+  disable_service wpa_supplicant
+
+  # Disable other display managers, if they are enabled
+  disable_service sddm
+  disable_service gdm
+  disable_service lightdm
+  disable_service xdm
+  disable_service nodm
+  disable_service stdm
+
+  # Enable the display manager of choice
+  enable_service $DISPLAY_MANAGER
+}
+
+# Main menu function
+main_menu() {
+  while true; do
+    CHOICE=$(dialog --menu "Void Linux Setup Utility" 20 50 10 \
+      1 "Add Extra Repositories" \
+      2 "Setup Pipewire" \
+      3 "Setup NVIDIA Drivers" \
+      4 "Install Gaming Toolbox" \
+      5 "Install Desktop Environment" \
+      6 "Update System" \
+      7 "Exit" 3>&1 1>&2 2>&3)
+    
+    case $CHOICE in
+      1)
+        add_extra_repositories
+        ;;
+      2)
+        setup_pipewire
+        ;;
+      3)
+        setup_nvidia
+        ;;
+      4)
+        install_gaming_toolbox
+        ;;
+      5)
+        install_desktop_environment
+        ;;
+      6)
+        show_output "sudo xbps-install -Suy" "Updating the system"
+        ;;
+      7)
+        clear
+        exit 0
+        ;;
+      *)
+        dialog --msgbox "Invalid choice. Exiting." 10 50
+        clear
+        exit 1
+        ;;
+    esac
+  done
+}
 
 # Install dialog if not already installed
 sudo xbps-install -Sy dialog >/dev/null 2>&1
 
-# Add extra repositories if the user wants
-add_extra_repositories
-
-# Ask if the user wants to update the system
-dialog --yesno "Do you want to update the system first?" 10 50
-if [[ $? -eq 0 ]]; then
-  show_output "sudo xbps-install -Suy" "Updating the system"
-fi
-
-# Choose desktop environment
-DE=$(dialog --menu "Choose a desktop environment to install:" 15 50 3 \
-  1 "KDE" \
-  2 "GNOME" \
-  3 "Cinnamon" 3>&1 1>&2 2>&3)
-
-case $DE in
-  1)
-    DE="KDE"
-    PACKAGES="kde5 kde5-baseapps sddm"
-    DISPLAY_MANAGER="sddm"
-    ;;
-  2)
-    DE="GNOME"
-    PACKAGES="gnome gdm"
-    DISPLAY_MANAGER="gdm"
-    ;;
-  3)
-    DE="Cinnamon"
-    PACKAGES="cinnamon-all lightdm"
-    DISPLAY_MANAGER="lightdm"
-    ;;
-  *)
-    dialog --msgbox "Invalid choice. Exiting." 10 50
-    exit 1
-    ;;
-esac
-
-# Install desktop environment and necessary packages
-show_output "sudo xbps-install -Sy xorg NetworkManager $PACKAGES" "Installing desktop environment"
-
-# Setup Pipewire
-setup_pipewire
-
-# Setup NVIDIA drivers
-setup_nvidia
-
-# Setup gaming toolbox
-install_gaming_toolbox
-
-dialog --infobox "Enabling services..." 10 50
-enable_service dbus
-
-enable_service NetworkManager
-
-# Disable wpa_supplicant service
-disable_service wpa_supplicant
-
-# Disable other display managers, if they are enabled
-disable_service sddm
-disable_service gdm
-disable_service lightdm
-disable_service xdm
-disable_service nodm
-disable_service stdm
-
-# Lastly, enable the display manager of choice
-enable_service $DISPLAY_MANAGER
-
-# Prompt for reboot
-dialog --yesno "Installation complete. Would you like to reboot now?" 10 50
-if [[ $? -eq 0 ]]; then
-  sudo reboot
-else
-  dialog --msgbox "Please reboot your system manually to apply the changes." 10 50
-fi
+# Run the main menu
+main_menu
